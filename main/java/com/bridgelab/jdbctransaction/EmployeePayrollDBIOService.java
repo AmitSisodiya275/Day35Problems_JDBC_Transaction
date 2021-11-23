@@ -172,6 +172,11 @@ public class EmployeePayrollDBIOService {
 		int empID = -1;
 		EmployeePayroll employeePayroll = null;
 		Connection connection = this.getConnection();
+		try {
+			connection.setAutoCommit(false);
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+		}
 
 		try (Statement statement = connection.createStatement()) {
 			String sql = String.format("insert into employee_payroll(name, gender, salary, start_date) values "
@@ -185,6 +190,12 @@ public class EmployeePayrollDBIOService {
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
+			try {
+				connection.rollback();
+			} catch (SQLException e1) {
+				e1.printStackTrace();
+			}
+			return employeePayroll;
 		}
 
 		try (Statement statement = connection.createStatement()) {
@@ -192,16 +203,34 @@ public class EmployeePayrollDBIOService {
 			double taxable_pay = salary - deduction;
 			double tax = taxable_pay * 0.1;
 			double net_pay = salary - tax;
-			String sql = String.format(
-					"insert into payroll_details(emp_id, basic_pay, deductions, taxable_pay, tax, net_pay)"
-							+ " values(%s, %s, %s, %s, %s, %s);",
-					empID, salary, deduction, taxable_pay, tax, net_pay);
+			String sql = String
+					.format("insert into payroll_details(emp_id, basic_pay, deductions, taxable_pay, tax, net_pay)"
+							+ " values(%s, %s, %s, %s, %s, %s);", empID, salary, deduction, taxable_pay, tax, net_pay);
 			int rowAffected = statement.executeUpdate(sql, statement.RETURN_GENERATED_KEYS);
 			if (rowAffected == 1) {
 				employeePayroll = new EmployeePayroll(empID, name, salary, startDate);
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
+			try {
+				connection.rollback();
+			} catch (SQLException e1) {
+				e1.printStackTrace();
+			}
+		}
+
+		try {
+			connection.commit();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} finally {
+			if (connection != null) {
+				try {
+					connection.close();
+				} catch (SQLException e1) {
+					e1.printStackTrace();
+				}
+			}
 		}
 		return employeePayroll;
 	}
