@@ -145,7 +145,7 @@ public class EmployeePayrollDBIOService {
 		return avgSalaryByGender;
 	}
 
-	public EmployeePayroll addNewEmployeeToTheDB(String name, double salary, LocalDate startDate, String gender) {
+	public EmployeePayroll addNewEmployeeToTheDBUC7(String name, double salary, LocalDate startDate, String gender) {
 		int empPayrollID = -1;
 		EmployeePayroll employeePayroll = null;
 		String sql = String.format(
@@ -162,6 +162,44 @@ public class EmployeePayrollDBIOService {
 				}
 			}
 			employeePayroll = new EmployeePayroll(empPayrollID, name, salary, startDate);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return employeePayroll;
+	}
+
+	public EmployeePayroll addNewEmployeeToTheDB(String name, double salary, LocalDate startDate, String gender) {
+		int empID = -1;
+		EmployeePayroll employeePayroll = null;
+		Connection connection = this.getConnection();
+
+		try (Statement statement = connection.createStatement()) {
+			String sql = String.format("insert into employee_payroll(name, gender, salary, start_date) values "
+					+ "('%s', '%s', '%s', '%s'); ", name, gender, salary, Date.valueOf(startDate));
+			int rowAffected = statement.executeUpdate(sql, statement.RETURN_GENERATED_KEYS);
+			if (rowAffected == 1) {
+				ResultSet resultSet = statement.getGeneratedKeys();
+				if (resultSet.next()) {
+					empID = resultSet.getInt(1);
+				}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+
+		try (Statement statement = connection.createStatement()) {
+			double deduction = salary * 0.2;
+			double taxable_pay = salary - deduction;
+			double tax = taxable_pay * 0.1;
+			double net_pay = salary - tax;
+			String sql = String.format(
+					"insert into payroll_details(emp_id, basic_pay, deductions, taxable_pay, tax, net_pay)"
+							+ " values(%s, %s, %s, %s, %s, %s);",
+					empID, salary, deduction, taxable_pay, tax, net_pay);
+			int rowAffected = statement.executeUpdate(sql, statement.RETURN_GENERATED_KEYS);
+			if (rowAffected == 1) {
+				employeePayroll = new EmployeePayroll(empID, name, salary, startDate);
+			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
